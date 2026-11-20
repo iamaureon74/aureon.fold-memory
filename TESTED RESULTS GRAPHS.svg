@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="756" viewBox="0 0 920 756">
+  <rect width="920" height="756" fill="#0b0b0c"/>
+  <text x="40" y="44" fill="#e8e8e8" font-family="Georgia, serif" font-size="22">tested results graphs — asher.fold-memory 2.0.0</text>
+  <text x="40" y="68" fill="#8a8a8a" font-family="Georgia, serif" font-size="12">measured on this build. real disk means du on the store folder: packs, index, everything.</text>
+  <text x="40" y="102" fill="#e8e8e8" font-family="Georgia, serif" font-size="14">a real pile: 114.6 mb = a python source tree + its monday backup copy + 30 mb of random bytes</text>
+  <text x="40" y="136" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v1 said it saved  63%  (its stats, not the disk)</text>
+  <rect x="40" y="144" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="144" width="507" height="16" fill="#2a2a2e"/>
+  <text x="40" y="186" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v1 real disk saved  45%  (63.4 mb on disk)</text>
+  <rect x="40" y="194" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="194" width="357" height="16" fill="#4a4a4f"/>
+  <text x="40" y="236" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v2 real disk saved  56%  (50.3 mb on disk)</text>
+  <rect x="40" y="244" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="244" width="449" height="16" fill="#6e7f6a"/>
+  <text x="40" y="286" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v1 paths remembered  627  (a second copy's path was forgotten)</text>
+  <rect x="40" y="294" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="294" width="392" height="16" fill="#4a4a4f"/>
+  <text x="40" y="336" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v2 paths remembered  1,281  (every file and both copies)</text>
+  <rect x="40" y="344" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="344" width="800" height="16" fill="#6e7f6a"/>
+  <text x="40" y="386" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v1 time  13.0 s</text>
+  <rect x="40" y="394" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="394" width="800" height="16" fill="#4a4a4f"/>
+  <text x="40" y="436" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">v2 time  4.9 s</text>
+  <rect x="40" y="444" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="444" width="302" height="16" fill="#6e7f6a"/>
+  <text x="40" y="486" fill="#e8e8e8" font-family="Georgia, serif" font-size="14">selftest (python fold_memory.py selftest, 25 checks, passes on python 3.8 / 3.10 / 3.12 / 3.14)</text>
+  <text x="40" y="520" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">near-duplicate prose stored once  49.6%  (perfect would be 50%)</text>
+  <rect x="40" y="528" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="528" width="397" height="16" fill="#6e7f6a"/>
+  <text x="40" y="570" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">unique random bytes  0%  (the floor. it does not shrink.)</text>
+  <rect x="40" y="578" width="800" height="16" fill="#1c1c1e"/>
+  <text x="40" y="620" fill="#bdbdbd" font-family="Georgia, serif" font-size="13">broken box: unfold refused, nothing half-written  100%</text>
+  <rect x="40" y="628" width="800" height="16" fill="#1c1c1e"/>
+  <rect x="40" y="628" width="800" height="16" fill="#6e7f6a"/>
+  <text x="40" y="676" fill="#8a8a8a" font-family="Georgia, serif" font-size="12">the old graph said 82%. in that test 0 bites were actually shared between the two files.</text>
+  <text x="40" y="696" fill="#8a8a8a" font-family="Georgia, serif" font-size="12">the saving was zlib squeezing one repeated sentence, plus counting the same file twice.</text>
+  <text x="40" y="716" fill="#8a8a8a" font-family="Georgia, serif" font-size="12">ice cream can melt. the cloud 4 gb cup / rented freezer often stays. unique photos and unique rows were never ice cream.</text>
+</svg>

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asher-fold-memory"
+dynamic = ["version"]
+description = "leftover-memory: identical copies share one box, unique bits stay the floor, unfold only if the fingerprint matches."
+readme = { file = "README FILE.txt", content-type = "text/plain" }
+requires-python = ">=3.8"
+dependencies = []
+license = { text = "all rights reserved by the author unless they say otherwise" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Archiving :: Backup",
+]
+
+[project.scripts]
+fold-memory = "fold_memory:main"
+
+[tool.setuptools]
+py-modules = ["fold_memory"]
+
+[tool.setuptools.dynamic]
+version = { attr = "fold_memory.__version__" }

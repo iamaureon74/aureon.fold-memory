@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+fold-memory-store/
+*.egg-info/
+build/
+dist/

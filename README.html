@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>asher fold-memory 2.1 — how it works</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --panel: #ffffff; --ink: #1b1d22; --muted: #5a5f6b; --line: #e3e1da;
+    --accent: #2f6b5a; --accent-soft: #e4efe9; --warn: #8a4b12; --warn-soft: #f7ebdc;
+    --bad: #9b2c2c; --bad-soft: #f6e3e3; --code-bg: #f0eee8;
+    --sans: "Inter", "InterVariable", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --display: "Inter Display", "Inter", "SF Pro Display", "Segoe UI Variable Display", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --panel: #1a1d21; --ink: #e8e6e1; --muted: #a3a7b0; --line: #2c3036;
+      --accent: #7cc4aa; --accent-soft: #1e2e28; --warn: #e3a76a; --warn-soft: #2e2418;
+      --bad: #ee8a8a; --bad-soft: #2e1c1c; --code-bg: #22262b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 16.5px/1.65 var(--sans); font-feature-settings: "cv11", "ss01", "tnum" 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 24px 96px; }
+  header.hero { padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+  .eyebrow { font: 600 12.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { font: 750 clamp(34px, 6vw, 52px)/1.06 var(--display); letter-spacing: -0.025em; margin: 14px 0 14px; }
+  h2 { font: 700 26px/1.2 var(--display); letter-spacing: -0.015em; margin: 64px 0 14px; scroll-margin-top: 20px; }
+  h3 { font: 650 18px/1.3 var(--sans); margin: 30px 0 8px; }
+  p { margin: 0 0 14px; }
+  .lede { font-size: 19px; color: var(--muted); max-width: 62ch; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  code, pre, kbd { font-family: var(--mono); font-size: 0.88em; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; line-height: 1.55; margin: 10px 0 18px;
+  }
+  pre code { background: none; padding: 0; }
+  .c { color: var(--muted); }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  nav.toc a {
+    text-decoration: none; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 999px; font-size: 14px; min-height: 36px; display: inline-flex; align-items: center;
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--accent); color: var(--accent); }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 18px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card b { display: block; font: 650 15px/1.3 var(--sans); margin-bottom: 6px; }
+  .card span { color: var(--muted); font-size: 14.5px; }
+  .card .stat { font: 750 30px/1 var(--display); letter-spacing: -0.02em; color: var(--accent); display: block; margin-bottom: 8px; }
+  figure { margin: 18px 0 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px 16px 14px; }
+  .dia { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  figure svg { display: block; width: 100%; height: auto; }
+  .flow { grid-template-columns: minmax(0, 1fr); }
+  .flow .card, .grid .card { min-width: 0; }
+  @media (max-width: 720px) {
+    .dia svg { width: 760px; max-width: none; }
+    .dia::after { content: "scroll sideways →"; display: block; font: 500 12px/1 var(--mono); color: var(--muted); padding: 8px 6px 0; }
+  }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 10px; padding: 0 6px; }
+  svg text { font-family: var(--sans); fill: var(--ink); }
+  svg .t-muted { fill: var(--muted); }
+  svg .t-mono { font-family: var(--mono); }
+  svg .box { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+  svg .box-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  svg .box-warn { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.5; }
+  svg .box-bad { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1.5; }
+  svg .arrow { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+  svg .arrow-accent { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+  svg .arrow-bad { stroke: var(--bad); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+  svg .head { fill: var(--muted); } svg .head-accent { fill: var(--accent); } svg .head-bad { fill: var(--bad); }
+  ol.caps { list-style: none; counter-reset: cap; padding: 0; margin: 0; }
+  ol.caps li {
+    counter-increment: cap; position: relative; padding: 12px 14px 12px 62px; border-bottom: 1px solid var(--line);
+  }
+  ol.caps li::before {
+    content: counter(cap, decimal-leading-zero); position: absolute; left: 12px; top: 12px;
+    font: 600 13px/1.7 var(--mono); color: var(--accent); background: var(--accent-soft);
+    border-radius: 7px; padding: 0 7px;
+  }
+  ol.caps li b { font-weight: 650; }
+  ol.caps li .d { color: var(--muted); display: block; font-size: 14.8px; }
+  .group { font: 600 12.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 30px 0 4px; padding-left: 2px; }
+  .tag { font: 600 11px/1 var(--mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 3px 7px; margin-left: 6px; vertical-align: 2px; }
+  .flow { counter-reset: step; display: grid; gap: 12px; margin: 14px 0 22px; }
+  .flow .card { position: relative; padding-left: 58px; }
+  .flow .card::before {
+    counter-increment: step; content: counter(step); position: absolute; left: 16px; top: 17px;
+    width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--panel);
+    font: 700 14px/28px var(--sans); text-align: center;
+  }
+  .flow pre { margin: 10px 0 0; }
+  .note { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 12px 16px; border-radius: 0 10px 10px 0; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12.5px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  td code { white-space: nowrap; }
+  .scroll { overflow-x: auto; }
+  footer { margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  @media (max-width: 560px) {
+    .wrap { padding: 36px 16px 72px; }
+    body { font-size: 16px; }
+    ol.caps li { padding-left: 54px; }
+  }
+  @media print {
+    body { background: #fff; color: #000; } nav.toc { display: none; }
+    figure, .card, pre { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">asher fold-memory · version 2.1.0</div>
+  <h1>keep one copy.<br>give back the exact bits, or nothing.</h1>
+  <p class="lede">fold-memory stores the leftover copies of your files only once: the same log line written every minute, a backup of a backup, a spreadsheet emailed five times. it remembers every path each copy came from, and it hands a file back only if every fingerprint still matches.</p>
+  <nav class="toc" aria-label="sections">
+    <a href="#idea">the idea</a>
+    <a href="#ingest">how storing works</a>
+    <a href="#unfold">how getting back works</a>
+    <a href="#layout">what is on disk</a>
+    <a href="#versions">versions</a>
+    <a href="#workflows">workflows</a>
+    <a href="#capabilities">every capability</a>
+    <a href="#commands">command reference</a>
+    <a href="#limits">honest limits</a>
+  </nav>
+</header>
+
+<section id="idea">
+  <h2>the idea in one minute</h2>
+  <p>most storage bills are paid for copies. fold-memory cuts every file into bite-sized pieces, names each piece by its sha-256 fingerprint, and keeps each distinct piece once. a second copy of a file costs a few bytes of bookkeeping. an edit near the start of a big file only creates new pieces around the edit.</p>
+  <div class="grid">
+    <div class="card"><span class="stat">49.6%</span><b>near-duplicate prose</b><span>saved in the selftest, where 50% is perfect. the prose never repeats, so this is real sharing, not compression tricks.</span></div>
+    <div class="card"><span class="stat">~46 kb</span><b>new bytes for one edit</b><span>after inserting text into a 9 mb file. the rest of the file still matched.</span></div>
+    <div class="card"><span class="stat">0%</span><b>unique random bytes</b><span>the floor. one photo, one encrypted vault, one original file stays its own size.</span></div>
+    <div class="card"><span class="stat">0</span><b>network calls</b><span>pure python 3.8+, standard library only. it never reaches the network.</span></div>
+  </div>
+  <p class="c" style="font-size:14px">measured on this build with <code>python fold_memory.py selftest</code>. your numbers depend on how many copies your data really has; run <code>sample</code> on a folder to find out without keeping anything.</p>
+</section>
+
+<section id="ingest">
+  <h2>how storing works</h2>
+  <p>this is what <code>ingest</code> does for every file.</p>
+  <figure>
+    <div class="dia"><svg viewBox="0 0 900 330" role="img" aria-labelledby="d1t d1d">
+      <title id="d1t">ingest pipeline</title>
+      <desc id="d1d">a file is read in 4 mb blocks, cut into bites where its content decides, each bite is fingerprinted, already-held bites are reused, new ones are squeezed and appended to a pack, then the file's manifest and path are recorded.</desc>
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker>
+        <marker id="a1g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head-accent"/></marker>
+      </defs>
+      <rect class="box" x="10" y="40" width="150" height="74" rx="12"/>
+      <text x="85" y="72" text-anchor="middle" font-weight="650" font-size="15">your file</text>
+      <text x="85" y="94" text-anchor="middle" class="t-muted" font-size="12.5">read 4 mb at a time</text>
+
+      <rect class="box" x="200" y="40" width="160" height="74" rx="12"/>
+      <text x="280" y="72" text-anchor="middle" font-weight="650" font-size="15">cut into bites</text>
+      <text x="280" y="94" text-anchor="middle" class="t-muted" font-size="12.5">content decides where</text>
+
+      <rect class="box" x="400" y="40" width="160" height="74" rx="12"/>
+      <text x="480" y="72" text-anchor="middle" font-weight="650" font-size="15">fingerprint</text>
+      <text x="480" y="94" text-anchor="middle" class="t-muted t-mono" font-size="12">sha-256 per bite</text>
+
+      <rect class="box-warn" x="600" y="34" width="150" height="86" rx="43"/>
+      <text x="675" y="72" text-anchor="middle" font-weight="650" font-size="15">already held?</text>
+      <text x="675" y="94" text-anchor="middle" class="t-muted" font-size="12.5">look up the fingerprint</text>
+
+      <path class="arrow" d="M160 77 H196" marker-end="url(#a1)"/>
+      <path class="arrow" d="M360 77 H396" marker-end="url(#a1)"/>
+      <path class="arrow" d="M560 77 H596" marker-end="url(#a1)"/>
+
+      <path class="arrow-accent" d="M750 77 H800 V150" marker-end="url(#a1g)"/>
+      <text x="808" y="70" class="t-muted" font-size="12.5">yes</text>
+      <rect class="box-accent" x="720" y="154" width="170" height="70" rx="12"/>
+      <text x="805" y="184" text-anchor="middle" font-weight="650" font-size="14.5">reuse it</text>
+      <text x="805" y="205" text-anchor="middle" class="t-muted" font-size="12.5">just point at the first</text>
+
+      <path class="arrow" d="M675 120 V189 H560" marker-end="url(#a1)"/>
+      <text x="684" y="160" class="t-muted" font-size="12.5">no</text>
+      <rect class="box" x="370" y="154" width="186" height="70" rx="12"/>
+      <text x="463" y="184" text-anchor="middle" font-weight="650" font-size="14.5">squeeze</text>
+      <text x="463" y="205" text-anchor="middle" class="t-muted" font-size="12.5">skipped for jpg, mp4, zip…</text>
+
+      <path class="arrow" d="M370 189 H330" marker-end="url(#a1)"/>
+      <rect class="box" x="140" y="154" width="186" height="70" rx="12"/>
+      <text x="233" y="184" text-anchor="middle" font-weight="650" font-size="14.5">append to a pack</text>
+      <text x="233" y="205" text-anchor="middle" class="t-muted" font-size="12.5">big append-only file</text>
+
+      <path class="arrow" d="M233 224 V256" marker-end="url(#a1)"/>
+      <path class="arrow-accent" d="M805 224 V280 H520" marker-end="url(#a1g)"/>
+      <rect class="box-accent" x="110" y="260" width="406" height="56" rx="12"/>
+      <text x="313" y="285" text-anchor="middle" font-weight="650" font-size="14.5">record manifest + path</text>
+      <text x="313" y="304" text-anchor="middle" class="t-muted" font-size="12.5">bite list, whole-file fingerprint, where it came from, search words</text>
+    </svg></div>
+    <figcaption>a cut lands where the bytes themselves match a pattern, so inserting text near the start of a file only changes the bites around the insert. text gets small bites (512 b – 16 kb, about 2 kb on average) so edited lines resync quickly. everything else gets bigger bites (8 – 256 kb, about 32 kb on average) to keep bookkeeping small.</figcaption>
+  </figure>
+  <h3>why a crash loses at most a few seconds</h3>
+  <p>bites go into the pack first and are synced to disk, and only then is the index row that points at them committed. that happens every 2 seconds or every 128 mb. if the power goes out in between, the pack has bytes nobody points at yet, and <code>gc</code> takes them back later. what was committed is held.</p>
+</section>
+
+<section id="unfold">
+  <h2>how getting back works</h2>
+  <p><code>unfold</code>, <code>restore</code> and the python <code>read()</code> all follow the same rule: check everything, then hand over the exact bytes or refuse. it never hands back a lookalike.</p>
+  <figure>
+    <div class="dia"><svg viewBox="0 0 900 250" role="img" aria-labelledby="d2t d2d">
+      <title id="d2t">unfold path</title>
+      <desc id="d2d">a reference is resolved to a fingerprint, bites are read in order and each is checked, the whole file fingerprint is checked, the result is written to a temporary file and renamed into place. any mismatch refuses and removes the temporary file.</desc>
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head"/></marker>
+        <marker id="a2g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head-accent"/></marker>
+        <marker id="a2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head-bad"/></marker>
+      </defs>
+      <rect class="box" x="10" y="30" width="160" height="78" rx="12"/>
+      <text x="90" y="62" text-anchor="middle" font-weight="650" font-size="15">what you ask for</text>
+      <text x="90" y="84" text-anchor="middle" class="t-muted" font-size="12">path · fingerprint · prefix</text>
+
+      <rect class="box" x="210" y="30" width="160" height="78" rx="12"/>
+      <text x="290" y="62" text-anchor="middle" font-weight="650" font-size="15">read bites</text>
+      <text x="290" y="84" text-anchor="middle" class="t-muted" font-size="12.5">in order, from packs</text>
+
+      <rect class="box-warn" x="410" y="30" width="160" height="78" rx="12"/>
+      <text x="490" y="62" text-anchor="middle" font-weight="650" font-size="15">check each bite</text>
+      <text x="490" y="84" text-anchor="middle" class="t-muted t-mono" font-size="12">sha-256 must match</text>
+
+      <rect class="box-warn" x="610" y="30" width="160" height="78" rx="12"/>
+      <text x="690" y="62" text-anchor="middle" font-weight="650" font-size="15">check whole file</text>
+      <text x="690" y="84" text-anchor="middle" class="t-muted" font-size="12.5">fingerprint + size</text>
+
+      <path class="arrow" d="M170 69 H206" marker-end="url(#a2)"/>
+      <path class="arrow" d="M370 69 H406" marker-end="url(#a2)"/>
+      <path class="arrow" d="M570 69 H606" marker-end="url(#a2)"/>
+
+      <path class="arrow-accent" d="M770 69 H820 V150" marker-end="url(#a2g)"/>
+      <rect class="box-accent" x="640" y="154" width="250" height="78" rx="12"/>
+      <text x="765" y="184" text-anchor="middle" font-weight="650" font-size="15">exact file</text>
+      <text x="765" y="206" text-anchor="middle" class="t-muted" font-size="12.5">temp file renamed into place,</text>
+      <text x="765" y="222" text-anchor="middle" class="t-muted" font-size="12.5">dates and permissions kept</text>
+
+      <path class="arrow-bad" d="M490 108 V150" />
+      <path class="arrow-bad" d="M690 108 V150 H490" />
+      <path class="arrow-bad" d="M490 150 V193 H380" marker-end="url(#a2r)"/>
+      <rect class="box-bad" x="120" y="154" width="256" height="78" rx="12"/>
+      <text x="248" y="184" text-anchor="middle" font-weight="650" font-size="15">refuse · exit 1</text>
+      <text x="248" y="206" text-anchor="middle" class="t-muted" font-size="12.5">temp file removed,</text>
+      <text x="248" y="222" text-anchor="middle" class="t-muted" font-size="12.5">nothing half-written left behind</text>
+      <text x="500" y="182" class="t-muted" font-size="12.5">any mismatch</text>
+    </svg></div>
+    <figcaption>stdout can't be taken back, so <code>unfold --out -</code> checks the whole file first. files over 32 mb are spooled to a temp file inside the store, not held in memory.</figcaption>
+  </figure>
+</section>
+
+<section id="layout">
+  <h2>what is on disk</h2>
+  <figure>
+    <div class="dia"><svg viewBox="0 0 900 260" role="img" aria-labelledby="d3t d3d">
+      <title id="d3t">store layout</title>
+      <desc id="d3d">the store folder holds append-only packs, which are the truth, and fold.sqlite, which is only a cache rebuilt from the packs.</desc>
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head-accent"/></marker>
+      </defs>
+      <rect x="10" y="14" width="880" height="232" rx="16" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <text x="30" y="42" class="t-mono" font-size="13" font-weight="600">fold-memory-store/</text>
+
+      <rect class="box-accent" x="34" y="62" width="470" height="164" rx="12"/>
+      <text x="54" y="90" font-weight="650" font-size="15">packs/  — the truth</text>
+      <text x="54" y="112" class="t-muted" font-size="12.5">append-only files, 256 mb each by default. four record kinds:</text>
+      <g font-size="12.5">
+        <rect x="54" y="126" width="210" height="42" rx="8" class="box"/>
+        <text x="66" y="145" class="t-mono" font-weight="600">C</text><text x="84" y="145">a bite (squeezed bytes)</text>
+        <text x="66" y="160" class="t-muted" font-size="11.5">named by its fingerprint</text>
+        <rect x="276" y="126" width="210" height="42" rx="8" class="box"/>
+        <text x="288" y="145" class="t-mono" font-weight="600">M</text><text x="306" y="145">a file's manifest</text>
+        <text x="288" y="160" class="t-muted" font-size="11.5">bite list + search words</text>
+        <rect x="54" y="174" width="210" height="42" rx="8" class="box"/>
+        <text x="66" y="193" class="t-mono" font-weight="600">L</text><text x="84" y="193">a location</text>
+        <text x="66" y="208" class="t-muted" font-size="11.5">path, size, date, mode, time</text>
+        <rect x="276" y="174" width="210" height="42" rx="8" class="box"/>
+        <text x="288" y="193" class="t-mono" font-weight="600">D</text><text x="306" y="193">a forget / prune</text>
+        <text x="288" y="208" class="t-muted" font-size="11.5">replayed in time order</text>
+      </g>
+
+      <rect class="box" x="600" y="62" width="266" height="110" rx="12"/>
+      <text x="620" y="90" font-weight="650" font-size="15">fold.sqlite — a cache</text>
+      <text x="620" y="112" class="t-muted" font-size="12.5">files · bites · locations · history</text>
+      <text x="620" y="130" class="t-muted" font-size="12.5">words for cue · packs · log</text>
+      <text x="620" y="152" class="t-muted" font-size="12.5">lose it → <tspan class="t-mono" font-weight="600" style="fill:var(--accent)">rebuild</tspan></text>
+
+      <rect class="box" x="600" y="184" width="266" height="42" rx="12"/>
+      <text x="620" y="210" font-size="13"><tspan class="t-mono" font-weight="600">prior.bin</tspan><tspan class="t-muted">  squeeze dictionary</tspan></text>
+
+      <path class="arrow-accent" d="M504 117 H596" marker-end="url(#a3)"/>
+      <text x="516" y="108" class="t-muted" font-size="12">rebuild</text>
+    </svg></div>
+    <figcaption>because packs are plain append-only files, they back up and sync well. the index can always be rebuilt from them, including the version history.</figcaption>
+  </figure>
+</section>
+
+<section id="versions">
+  <h2>versions</h2>
+  <p>when a file at a path changes and is ingested again, the version it replaced moves to history. history holds only replaced versions, so a folder that never changes costs nothing extra (about 8 kb on a 642-file test store). a store made by 2.0 gets its history back the first time 2.1 opens it, because the location records were always in the packs.</p>
+  <figure>
+    <div class="dia"><svg viewBox="0 0 900 190" role="img" aria-labelledby="d4t d4d">
+      <title id="d4t">version timeline</title>
+      <desc id="d4d">report.docx was ingested three times. the newest version is current, the two older ones are in history and can be unfolded with version 2 or 3. prune keep 2 drops the oldest.</desc>
+      <line x1="60" y1="96" x2="840" y2="96" stroke="var(--line)" stroke-width="3" stroke-linecap="round"/>
+      <text x="60" y="40" class="t-mono" font-size="13" font-weight="600">report.docx</text>
+      <g>
+        <circle cx="180" cy="96" r="11" class="box-bad"/>
+        <text x="180" y="132" text-anchor="middle" font-size="13" font-weight="650">--version 3</text>
+        <text x="180" y="150" text-anchor="middle" class="t-muted" font-size="12">monday · history</text>
+        <text x="180" y="168" text-anchor="middle" font-size="11.5" style="fill:var(--bad)">dropped by prune --keep 2</text>
+      </g>
+      <g>
+        <circle cx="450" cy="96" r="11" class="box-warn"/>
+        <text x="450" y="132" text-anchor="middle" font-size="13" font-weight="650">--version 2</text>
+        <text x="450" y="150" text-anchor="middle" class="t-muted" font-size="12">wednesday · history</text>
+      </g>
+      <g>
+        <circle cx="720" cy="96" r="13" class="box-accent"/>
+        <text x="720" y="132" text-anchor="middle" font-size="13" font-weight="650">--version 1 · current</text>
+        <text x="720" y="150" text-anchor="middle" class="t-muted" font-size="12">friday · locations</text>
+      </g>
+      <text x="840" y="70" text-anchor="end" class="t-muted" font-size="12">time →</text>
+    </svg></div>
+    <figcaption><code>prune</code> never drops the current version, or a version that is still current at another path. after pruning, <code>gc</code> gives the space back.</figcaption>
+  </figure>
+</section>
+
+<section id="workflows">
+  <h2>workflows</h2>
+
+  <h3>first run: prove it, then fold a folder</h3>
+  <div class="flow">
+    <div class="card"><b>check it on this machine</b><span>25 checks: sharing, the floor, damage refusal, losing the index, moving a delta.</span>
+<pre><code>python fold_memory.py selftest</code></pre></div>
+    <div class="card"><b>see what you would save, without keeping anything</b>
+<pre><code>python fold_memory.py sample ~/Documents</code></pre></div>
+    <div class="card"><b>fold it</b><span>unchanged files are skipped quickly on later runs (same size and date).</span>
+<pre><code>python fold_memory.py ingest ~/Documents --exclude "*.tmp"
+python fold_memory.py stats   <span class="c"># disk_bytes is the real disk, index included</span></code></pre></div>
+  </div>
+
+  <h3>find something and get it back</h3>
+  <div class="flow">
+    <div class="card"><b>recall by words</b><span>names, folders, document text, photo camera and date, song tags. <code>--trance</code> also matches word beginnings and any word.</span>
+<pre><code>python fold_memory.py cue "quarterly invoice acme"
+python fold_memory.py cue "invoic acm" --trance</code></pre></div>
+    <div class="card"><b>exact file back, or a refusal</b>
+<pre><code>python fold_memory.py unfold ~/Documents/invoice.pdf --out restored/
+python fold_memory.py unfold 3fa9c1 --out -   <span class="c"># fingerprint prefix, to stdout</span></code></pre></div>
+    <div class="card"><b>a whole folder, with layout, dates and permissions</b>
+<pre><code>python fold_memory.py restore ~/Documents --out /mnt/recovered --dry-run
+python fold_memory.py restore ~/Documents --out /mnt/recovered</code></pre></div>
+  </div>
+
+  <h3>undo a bad save</h3>
+  <div class="flow">
+    <div class="card"><b>list what was held at that path</b>
+<pre><code>python fold_memory.py versions ~/Documents/plan.docx</code></pre></div>
+    <div class="card"><b>take the older one back</b>
+<pre><code>python fold_memory.py unfold ~/Documents/plan.docx --version 2 --out plan-before.docx</code></pre></div>
+  </div>
+
+  <h3>clean up copies on your own disks</h3>
+  <div class="flow">
+    <div class="card"><b>the copies worth deleting, biggest waste first</b><span>they are already stored once in the closet, so this is what your source disks still pay for.</span>
+<pre><code>python fold_memory.py dupes ~/Documents --limit 20</code></pre></div>
+    <div class="card"><b>cap old versions, then give space back</b>
+<pre><code>python fold_memory.py prune --keep 5 --dry-run
+python fold_memory.py prune --keep 5
+python fold_memory.py gc</code></pre></div>
+  </div>
+
+  <h3>nightly database dumps</h3>
+  <div class="flow">
+    <div class="card"><b>pipe the dump in; only changed bites are new each night</b>
+<pre><code>pg_dump mydb | python fold_memory.py ingest - --name mydb-nightly.sql
+python fold_memory.py versions stdin/mydb-nightly.sql</code></pre></div>
+  </div>
+
+  <h3>two machines over a slow or offline link</h3>
+  <figure>
+    <div class="dia"><svg viewBox="0 0 900 190" role="img" aria-labelledby="d5t d5d">
+      <title id="d5t">delta sync</title>
+      <desc id="d5d">the receiver lists which bites it has, the sender exports only the missing bites plus manifests and the squeeze dictionary, and the receiver imports, checking every fingerprint.</desc>
+      <defs>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head-accent"/></marker>
+      </defs>
+      <rect class="box" x="20" y="30" width="230" height="130" rx="14"/>
+      <text x="135" y="62" text-anchor="middle" font-weight="650" font-size="15">sender</text>
+      <text x="135" y="88" text-anchor="middle" class="t-mono" font-size="12.5">② export delta.fmpack</text>
+      <text x="135" y="106" text-anchor="middle" class="t-mono" font-size="12.5">--have have.txt</text>
+      <rect class="box" x="650" y="30" width="230" height="130" rx="14"/>
+      <text x="765" y="62" text-anchor="middle" font-weight="650" font-size="15">receiver</text>
+      <text x="765" y="88" text-anchor="middle" class="t-mono" font-size="12.5">① have have.txt</text>
+      <text x="765" y="110" text-anchor="middle" class="t-mono" font-size="12.5">③ import delta.fmpack</text>
+      <text x="765" y="134" text-anchor="middle" class="t-muted" font-size="12">every fingerprint re-checked</text>
+      <path class="arrow-accent" d="M646 60 H254" marker-end="url(#a5)"/>
+      <text x="450" y="50" text-anchor="middle" class="t-muted" font-size="12.5">① list of held bite fingerprints</text>
+      <path class="arrow-accent" d="M254 120 H646" marker-end="url(#a5)"/>
+      <text x="450" y="110" text-anchor="middle" class="t-muted" font-size="12.5">② only missing bites + manifests + dictionary</text>
+    </svg></div>
+    <figcaption>the delta carries the squeeze dictionary, so stores with different dictionaries can trade (new in 2.1). a 2.0 importer ignores the extra record.</figcaption>
+  </figure>
+
+  <h3>when something breaks</h3>
+  <div class="flow">
+    <div class="card"><b>check every bite; names the files that are affected</b>
+<pre><code>python fold_memory.py verify --full</code></pre></div>
+    <div class="card"><b>index lost or damaged? rebuild it from the packs</b>
+<pre><code>python fold_memory.py rebuild</code></pre></div>
+    <div class="card"><b>upgrading a 2.0 store? scrub and refresh the search index once</b><span><code>stats</code> shows <code>reindex_recommended</code> when this is needed.</span>
+<pre><code>python fold_memory.py reindex</code></pre></div>
+  </div>
+</section>
+
+<section id="capabilities">
+  <h2>every capability</h2>
+  <p>numbered in the order a file moves through the tool. <span class="tag">2.1</span> marks what is new in this version.</p>
+
+  <div class="group">storing</div>
+  <ol class="caps">
+    <li><b>content-defined cutting</b><span class="d">cut points come from the bytes themselves, so an insert only changes nearby bites. text: 512 b – 16 kb bites; other data: 8 – 256 kb. the cutting runs in c via the standard library.</span></li>
+    <li><b>sha-256 fingerprints</b><span class="d">every bite and every whole file is named by its sha-256. change one bit and the name changes.</span></li>
+    <li><b>one copy of each identical bite</b><span class="d">across files, folders, nights and machines. a bite seen twice in the same file is stored once too.</span></li>
+    <li><b>squeeze that knows when to stop</b><span class="d">zlib with a store dictionary by default; <code>--level fast|default|max</code> (max uses xz); <code>--codec zstd</code> on python 3.14+. jpg, png, mp4, mp3, zip, docx and other already-compressed formats are stored as they are, and so is any bite that doesn't shrink.</span></li>
+    <li><b>append-only pack files</b><span class="d">bites live in a few big files (256 mb each by default, set with <code>FOLD_MEMORY_PACK_MB</code>), not millions of tiny ones.</span></li>
+    <li><b>every path remembered</b><span class="d">the same file at a second path costs only a location record. <code>ls</code> shows every path.</span></li>
+    <li><b>fast re-runs</b><span class="d">files with the same size and modification time are skipped without reading. <code>--rehash</code> forces a re-read.</span></li>
+    <li><b>stdin ingest</b><span class="d"><code>ingest - --name nightly.sql</code> folds anything piped in, like database dumps.</span></li>
+    <li><b>parallel and concurrent</b><span class="d"><code>--jobs N</code> squeezes in parallel; several ingests can write to one store at once.</span></li>
+    <li><b>crash safety</b><span class="d">bytes are synced before the index points at them, with commits every 2 s or 128 mb. kill -9 loses at most the last few seconds.</span></li>
+    <li><b>bounded memory</b><span class="d">files of any size are streamed. a 768 mb file peaked at 58 mb of ram (author's measurement, kept as a test).</span></li>
+  </ol>
+
+  <div class="group">getting back</div>
+  <ol class="caps" start="12" style="counter-reset: cap 11">
+    <li><b>exact unfold or refusal</b><span class="d">every bite and the whole file are checked; a mismatch exits 1 and leaves nothing half-written. output to a file, a folder or stdout.</span></li>
+    <li><b>three ways to name a file</b><span class="d">a full fingerprint, a prefix of 6 or more characters, or any path it was seen at.</span></li>
+    <li><b>folder restore</b><span class="d"><code>restore &lt;prefix&gt; --out dir</code> keeps the relative layout, modification dates and permissions. <code>--dry-run</code> lists first. <span class="tag">2.1</span> restoring from <code>/</code> keeps full paths and refuses instead of overwriting when two files would collide.</span></li>
+    <li><b>bounded-memory stdout</b> <span class="tag">2.1</span><span class="d">files over 32 mb are spooled to disk before being written to stdout, still fully checked first.</span></li>
+    <li><b>version history</b> <span class="tag">2.1</span><span class="d"><code>versions &lt;path&gt;</code> lists every version held at a path, newest first, with dates. <code>unfold &lt;path&gt; --version N</code> brings one back.</span></li>
+  </ol>
+
+  <div class="group">recall</div>
+  <ol class="caps" start="17" style="counter-reset: cap 16">
+    <li><b>cue: search by words</b><span class="d">ranked by where a word appears: in the file name (weight 8), in fields such as title or subject (3), in folder names (2), and in the body text (by frequency).</span></li>
+    <li><b>trance: wider recall</b><span class="d"><code>--trance</code> adds word-beginning matches, ranks partial matches, and boosts adjacent query words found together. it adds no storage.</span></li>
+    <li><b>reads inside files</b><span class="d">pdf text and info, word / excel / powerpoint, odf, epub, html titles, json, csv headers, email headers and body, jpeg exif (camera, date), png / gif / webp size, mp3 id3, mp4 / mov / heic boxes, wav / flac / ogg tags, fits headers, sqlite table names, zip / tar / tar.gz member names. every reader is size-bounded, so a zip bomb can't blow up memory.</span></li>
+    <li><b>any language</b><span class="d">chinese, japanese and korean are split into character pairs; camelCase and digits are split into their parts.</span></li>
+    <li><b>secrets masked in search</b><span class="d">aws, google, github, stripe, openai-style and slack keys, jwts, private-key headers and <code>password= / token= / api_key=</code> text are replaced with [masked] before indexing. <span class="tag">2.1</span> this now covers metadata fields too (email subjects, csv headers, document titles).</span></li>
+    <li><b>secret-shaped files skipped</b><span class="d">.env, id_rsa, .pem, .key, .p12, .kdbx, cookies, wallet.dat, .netrc, credentials.json and similar are skipped unless you pass <code>--include-secret-names</code>; .ssh, .gnupg and .password-store folders are never walked.</span></li>
+  </ol>
+
+  <div class="group">health</div>
+  <ol class="caps" start="23" style="counter-reset: cap 22">
+    <li><b>verify</b><span class="d">reads and checks every bite and names the files it affects; <code>--full</code> also re-checks every whole file. a bite this python can't decode (zstd on an older python) is reported as "not checked", never as damage.</span></li>
+    <li><b>rebuild</b><span class="d">recreates the whole index, including version history, from the packs alone. it rolls back if it can't finish.</span></li>
+    <li><b>reindex</b> <span class="tag">2.1</span><span class="d">re-reads every held file from its own bites and rebuilds its words and preview, so a 2.0 index can be scrubbed without the original files.</span></li>
+    <li><b>honest stats</b><span class="d"><code>disk_bytes</code> is everything on disk (packs, index and dictionary), alongside logical bytes, the saving from copies, the saving from squeezing, and old versions held.</span></li>
+  </ol>
+
+  <div class="group">space</div>
+  <ol class="caps" start="27" style="counter-reset: cap 26">
+    <li><b>forget</b><span class="d">drop one path (with its old versions), a whole file by fingerprint, or a file at every path with <code>--everywhere</code>.</span></li>
+    <li><b>prune</b> <span class="tag">2.1</span><span class="d"><code>prune --keep N [prefix]</code> keeps the newest N versions per path. the current version and anything still current elsewhere always stay. <code>--dry-run</code> shows the effect first.</span></li>
+    <li><b>gc</b><span class="d">frees bites nothing points at and repacks mostly-dead packs. it waits for other writers and leaves anything newer than 1 hour alone. <code>--dry-run</code>, <code>--deep</code> and <code>--force</code> are available.</span></li>
+    <li><b>dupes</b> <span class="tag">2.1</span><span class="d">identical files sitting at several paths right now, ranked by wasted bytes, with every path listed.</span></li>
+    <li><b>sample</b><span class="d">estimates savings for a folder in a temporary store that is deleted afterwards.</span></li>
+  </ol>
+
+  <div class="group">moving and fitting in</div>
+  <ol class="caps" start="32" style="counter-reset: cap 31">
+    <li><b>delta sync between machines</b><span class="d"><code>have</code> → <code>export --have</code> → <code>import</code> moves only missing bites. every fingerprint is re-checked on arrival. <span class="tag">2.1</span> the squeeze dictionary travels too, so stores with different dictionaries can trade.</span></li>
+    <li><b>python library</b><span class="d"><code>FoldMemory(store)</code> with <code>ingest_file</code>, <code>ingest_bytes</code>, <code>ingest_stream</code>, <code>ingest_tree</code>, <code>cue</code>, <code>read</code>, <code>unfold</code>, <code>restore</code>, <code>versions</code>, <code>prune</code>, <code>dupes</code>, <code>verify</code>, <code>stats</code>. failures raise <code>Refused</code>.</span></li>
+    <li><b>inside postgres (11+)</b><span class="d"><code>add-to-postgres.sql</code> adds <code>fold_column</code> / <code>restore_column</code> to fold old column values into one box per unique value, plus <code>get</code>, <code>verify</code>, <code>gc</code> and <code>stats</code>. it refuses secret-shaped columns. a pg_cron example is included.</span></li>
+    <li><b>self-upgrading stores</b><span class="d">a 1.0 store upgrades the first time 2.x opens it; a 2.0 store gets its history back from its packs when 2.1 opens it. 2.0 can still read stores and exports written by 2.1.</span></li>
+    <li><b>safe walking</b><span class="d">pipes, devices and sockets are skipped (never hang); symlink loops are detected with <code>--follow-links</code>; onedrive / icloud placeholders are skipped unless <code>--hydrate-cloud</code>; names that aren't valid utf-8 are kept exactly.</span></li>
+    <li><b>runs anywhere, offline</b><span class="d">python 3.8+, standard library only: windows, mac, linux, raspberry pi, nas, android (termux), ios (a-shell / pythonista), and air-gapped servers. the store goes to <code>--store</code>, else <code>$FOLD_MEMORY_STORE</code>, else beside the script, else your data folder.</span></li>
+    <li><b>selftest</b><span class="d">25 checks you can run on your own machine, reporting measured numbers, not claims.</span></li>
+  </ol>
+</section>
+
+<section id="commands">
+  <h2>command reference</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>command</th><th>what it does</th><th>exit</th></tr></thead>
+    <tbody>
+      <tr><td><code>ingest &lt;paths…|-&gt;</code></td><td>fold files, folders or stdin. options: <code>--exclude</code>, <code>--level</code>, <code>--codec</code>, <code>--jobs</code>, <code>--rehash</code>, <code>--follow-links</code>, <code>-v</code></td><td>0</td></tr>
+      <tr><td><code>cue "words" [--trance]</code></td><td>recall by words</td><td>0</td></tr>
+      <tr><td><code>unfold &lt;ref&gt; [--out f|dir/|-] [--version N]</code></td><td>exact file back, or refuse. with no <code>--out</code>, verify only</td><td>0 / 1</td></tr>
+      <tr><td><code>restore &lt;prefix&gt; --out dir [--dry-run]</code></td><td>a whole folder back</td><td>0 / 1</td></tr>
+      <tr><td><code>versions &lt;path&gt;</code> <span class="tag">2.1</span></td><td>every version held at a path</td><td>0 / 1</td></tr>
+      <tr><td><code>ls [prefix]</code></td><td>remembered paths</td><td>0</td></tr>
+      <tr><td><code>dupes [prefix]</code> <span class="tag">2.1</span></td><td>copies at several paths, biggest waste first</td><td>0</td></tr>
+      <tr><td><code>stats</code></td><td>honest sizes</td><td>0</td></tr>
+      <tr><td><code>verify [--full]</code></td><td>check every bite (and every whole file)</td><td>0 / 1</td></tr>
+      <tr><td><code>forget &lt;ref…&gt; [--everywhere]</code></td><td>drop a path or a file</td><td>0 / 1</td></tr>
+      <tr><td><code>prune --keep N [prefix] [--dry-run]</code> <span class="tag">2.1</span></td><td>cap old versions per path</td><td>0 / 2</td></tr>
+      <tr><td><code>gc [--dry-run] [--deep] [--force]</code></td><td>give space back</td><td>0 / 1</td></tr>
+      <tr><td><code>rebuild</code></td><td>index from packs</td><td>0 / 1</td></tr>
+      <tr><td><code>reindex</code> <span class="tag">2.1</span></td><td>words and previews from the held bytes</td><td>0 / 1</td></tr>
+      <tr><td><code>have [file]</code> · <code>export out [refs] [--have f]</code> · <code>import pack</code></td><td>move only missing bites between stores</td><td>0 / 1</td></tr>
+      <tr><td><code>sample &lt;paths&gt;</code></td><td>estimate savings; keeps nothing</td><td>0</td></tr>
+      <tr><td><code>selftest</code> · <code>smoke</code></td><td>prove it here · open the store and exit</td><td>0 / 1</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="c" style="font-size:14px">every command takes <code>--store &lt;folder&gt;</code>. every result is printed as json, so it can be scripted.</p>
+</section>
+
+<section id="limits">
+  <h2>honest limits</h2>
+  <div class="note"><b>unique data does not shrink.</b> savings track how many copies you have, not how much data you have. if your bill is unique photos, unique rows or encrypted disks, plan on about 0–10%. run <code>sample</code> before promising anyone a number.</div>
+  <div class="note"><b>bytes are stored as they are.</b> secret masking protects the search index, not the stored contents. don't point it at password stores.</div>
+  <div class="note"><b>a smaller cloud number may not follow.</b> postgres keeps a table's file the same size after a delete until <code>vacuum full</code> or a repack runs, and providers bill the disk you rented, not what you use inside it.</div>
+  <p class="c" style="font-size:14px">2.1 was tested on python 3.8 and 3.13 (43 tests passed and 1 skipped on each; the skipped zstd test needs 3.14). the postgres file is unchanged from 2.0 and was not re-run for 2.1. speed figures elsewhere in the plain-text readme are the author's own measurements.</p>
+</section>
+
+<footer>
+  asher fold-memory 2.1.0 · copies die, uniqueness stays. · the plain-text readme (<code>README FILE.txt</code>) has device-by-device install notes, money estimates and market notes.
+</footer>
+</div>
+</body>
+</html>
